@@ -1,0 +1,123 @@
+Energy Forecasting & Anomaly Detection in Household Power Consumption
+Assia Bouamir – Master AI Project
+1. Introduction
+L’objectif de ce projet est de construire un pipeline complet pour :
+
+Prévoir la consommation électrique horaire d’un logement (Global Active Power) à court terme (1–72 h)
+
+Détecter automatiquement les consommations anormales (pics ou dysfonctionnements)
+
+Le jeu de données utilisé est le célèbre Individual Household Electric Power Consumption de l’UCI (≈2 M mesures à la minute, 2006–2010).
+
+2. Préparation des données
+Chargement
+
+Lecture du .txt avec ; séparateur, parsing de Date+Time → colonne datetime.
+
+na_values='?' → gestion des données manquantes.
+
+Resampling
+
+Interpolation linéaire sur l’index temporel minute → resampling horaire (moyenne) → jeu régulier à 1 h.
+
+Feature Engineering
+
+Temporelles : hour, weekday, month, is_weekend.
+
+Conservation des variables électriques :
+– Global_reactive_power, Voltage, Global_intensity
+– Sub_metering_1/2/3
+
+Résultat : un DataFrame de 34 589 enregistrements horaires, prêt pour modélisation.
+
+3. Modélisation de la prévision
+3.1 LSTM (TensorFlow)
+Architecture
+
+Entrée : fenêtre glissante de LOOKBACK=48 h × 10 features
+
+2 couches LSTM (64 puis 32 unités) + Dense(1)
+
+Entraînement
+
+Split temporel : 70 % train / 15 % val / 15 % test
+
+Optimizer Adam (lr=1e-3), ReduceLROnPlateau (factor=0.5, patience=3), EarlyStopping (patience=3)
+
+Batch size : 64, Époques : 30
+
+3.2 Prophet (benchmark)
+Modèle Facebook Prophet avec saisonnalités annuelles/hebdo, jours fériés FR.
+
+4. Résultats
+4.1 Courbes d’apprentissage
+Convergence rapide en ~10 époques.
+
+Validation loss atteint un minimum ~0.32 (MSE) → bon compromis bias/variance.
+
+4.2 Performance sur test set
+Modèle	Horizon	RMSE (kW)	MAE (kW)
+LSTM	48 h	0.50	0.37
+Prophet	48 h	0.73	0.63
+
+Observation : LSTM surpasse nettement Prophet sur les horizons courts grâce à sa capacité à capturer les motifs journaliers et pics rapides.
+
+5. Détection d’anomalies
+5.1 Méthode
+IsolationForest (pyod) entraîné sur les features principales (Global_active_power, Global_reactive_power, Voltage, Global_intensity).
+
+Taux de contamination ajustable via interface (0.1 %–5 %).
+
+5.2 Résultat visuel
+Les points rouges (anomalies) correspondent aux grands pics > 4 kW, cohérents avec des surcharges ou dysfonctionnements.
+
+6. Application interactive (Streamlit)
+L’application regroupe :
+
+Affichage de la série historique
+
+Slider pour ajuster le taux de contamination
+
+Détection en temps réel des anomalies
+
+Slider pour choisir l’horizon de prévision (1–72 h)
+
+Courbes : historique + prévision auto-régressive
+
+Exemples d’écrans :
+
+<figure> <img src="attachment:streamlit_screenshot1.png" alt="Streamlit Dashboard" style="width:80%"/> </figure>
+7. Conclusions & pistes futures
+Performance
+
+LSTM fournit d’excellentes prévisions à court terme.
+
+IsolationForest détecte efficacement les pics anormaux.
+
+Extensions possibles
+
+Exogènes météo (température, ensoleillement) pour affiner.
+
+Hyper-tuning plus poussé (Keras-Tuner, bayesian search).
+
+Autres algos anomaly (AutoEncoder, LOF).
+
+Déploiement en production via API FastAPI + Docker.
+
+Références
+UCI ML Repository – Individual Household Electric Power Consumption
+
+TensorFlow LSTM tutorial
+
+Facebook Prophet documentation
+
+PyOD library
+
+Merci pour ton attention ! N’hésite pas si tu souhaites des détails supplémentaires ou un déploiement sur le Cloud.
+
+
+
+
+
+
+
